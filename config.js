@@ -20,7 +20,7 @@ export const OWNER = { email: "ronielnyke@gmail.com", name: "Roniel Nyke Gonzale
 // Fill these 3 values from https://dashboard.emailjs.com (see SETUP-EMAILJS.md). Public Key is safe in the browser.
 export const EMAILJS = {
   publicKey: "S3_XQI5mfn8MMdGhM",   // Account > General > Public Key
-  serviceId: "service_djne9ym",   // Email Services > your Gmail service > Service ID
+  serviceId: "service_gpk705s",   // Email Services > your Gmail service > Service ID
   templateId: "template_q5v9o8w"  // Email Templates > your template > Template ID
 };
 // Gemini voice + explanations. The secret key stays in Vercel Environment Variables.
