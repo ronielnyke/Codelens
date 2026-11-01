@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Only this Google account (verified email) is the owner. Keep in sync with config.js.
+    function isOwner() {
+      return request.auth != null
+        && request.auth.token.email == 'ronielnyke@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+    function approvedBuyer(id) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/orders/$(request.auth.uid + '_' + id))
+        && get(/databases/$(database)/documents/orders/$(request.auth.uid + '_' + id)).data.status == 'approved';
+    }
+    match /users/{u} { allow read, write: if request.auth != null && request.auth.uid == u; }
+    match /config/{c} {
+      allow read: if true;
+      allow write: if c == 'store' && isOwner();
+    }
+    match /listings/{id} {
+      allow read: if true;
+      allow create, update: if isOwner() && request.resource.data.seller == request.auth.uid;
+      allow delete: if isOwner();
+      match /media/{m} { allow read: if true; allow write: if isOwner(); }
+      match /files/{f} { allow read: if isOwner() || approvedBuyer(id); allow write: if isOwner(); }
+      match /chunks/{c} { allow read: if isOwner() || approvedBuyer(id); allow write: if isOwner(); }
+    }
+    match /orders/{o} {
+      allow create: if request.auth != null
+        && request.resource.data.buyer == request.auth.uid
+        && o == request.auth.uid + '_' + request.resource.data.lid
+        && request.resource.data.status == 'pending' && request.resource.data.key == ''
+        && request.resource.data.seller == get(/databases/$(database)/documents/listings/$(request.resource.data.lid)).data.seller
+        && request.resource.data.price == get(/databases/$(database)/documents/listings/$(request.resource.data.lid)).data.price
+        && request.resource.data.seller != request.auth.uid;
+      allow read: if request.auth != null && (resource.data.buyer == request.auth.uid || resource.data.seller == request.auth.uid);
+      allow update: if request.auth != null && resource.data.seller == request.auth.uid
+        && request.resource.data.buyer == resource.data.buyer && request.resource.data.ref == resource.data.ref && request.resource.data.price == resource.data.price;
+      allow delete: if request.auth != null && resource.data.buyer == request.auth.uid && resource.data.status == 'rejected';
+    }
+    match /refs/{r} {
+      allow create: if request.auth != null && request.resource.data.buyer == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+    match /licenses/{key} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if request.auth != null && request.resource.data.seller == request.auth.uid;
+    }
+  }
+}

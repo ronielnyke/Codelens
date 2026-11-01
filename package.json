@@ -1,0 +1,10 @@
+{
+  "name": "codelens-ai-pro",
+  "version": "1.1.0",
+  "private": true,
+  "projectId": "code-4630c",
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  }
+}

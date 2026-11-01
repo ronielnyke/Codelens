@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CodeLens Setup Check</title>
+
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0b1620;
+      color: #e8f1f8;
+      padding: 20px;
+      max-width: 640px;
+      margin: auto;
+    }
+
+    .r {
+      padding: 10px 12px;
+      margin: 8px 0;
+      border-radius: 8px;
+      background: #13283a;
+      overflow-wrap: anywhere;
+    }
+
+    .ok {
+      border-left: 4px solid #38d996;
+    }
+
+    .no {
+      border-left: 4px solid #ff6b6b;
+    }
+
+    .info {
+      border-left: 4px solid #58a6ff;
+    }
+
+    small {
+      color: #9bb3c6;
+      display: block;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>CodeLens Setup Check</h2>
+  <div id="o">Checking configuration...</div>
+
+  <script type="module">
+    import { firebaseConfig, SITE_DOMAIN } from "./config.js";
+    import { emailjsMissing, sendEmailJS } from "./js/welcome.js";
+
+    const o = document.getElementById("o");
+
+    function add(status, title, details = "") {
+      const row = document.createElement("div");
+      row.className = "r " + status;
+
+      const heading = document.createElement("div");
+      heading.textContent =
+        (status === "ok" ? "PASS: " :
+         status === "no" ? "FAIL: " : "INFO: ") + title;
+
+      row.appendChild(heading);
+
+      if (details) {
+        const small = document.createElement("small");
+        small.textContent = details;
+        row.appendChild(small);
+      }
+
+      o.appendChild(row);
+    }
+
+    o.innerHTML = "";
+
+    // 1. Website domain
+    const correctDomain = location.hostname === SITE_DOMAIN;
+
+    add(
+      correctDomain ? "ok" : "no",
+      "Website domain: " + location.hostname,
+      correctDomain
+        ? "The website is using the expected domain."
+        : "Open https://" + SITE_DOMAIN + "/check.html"
+    );
+
+    // 2. Firebase configuration
+    const correctProject =
+      firebaseConfig.projectId === "code-4630c";
+
+    add(
+      correctProject ? "ok" : "no",
+      "Firebase project: " +
+        (firebaseConfig.projectId || "(missing)"),
+      correctProject
+        ? "The configuration file specifies project code-4630c."
+        : "Check projectId in config.js."
+    );
+
+    // 3. Google sign-in domain configuration
+    const correctAuthDomain =
+      location.hostname === SITE_DOMAIN
+        ? firebaseConfig.authDomain === SITE_DOMAIN
+        : firebaseConfig.authDomain === "code-4630c.firebaseapp.com";
+
+    add(
+      correctAuthDomain ? "ok" : "no",
+      "Firebase auth domain: " +
+        (firebaseConfig.authDomain || "(missing)"),
+      correctAuthDomain
+        ? "The configured auth domain matches this environment."
+        : "Check authDomain in config.js."
+    );
+
+    // 4. Firebase authentication proxy
+    try {
+      const response = await fetch("/__/auth/handler", {
+        cache: "no-store"
+      });
+
+      add(
+        response.ok ? "ok" : "no",
+        "Firebase auth proxy: HTTP " + response.status,
+        response.ok
+          ? "The endpoint responded successfully. This alone does not prove sign-in works."
+          : "Check the /__/auth/ rewrite in vercel.json."
+      );
+    } catch (error) {
+      add(
+        "no",
+        "Firebase auth proxy failed",
+        error.message
+      );
+    }
+
+    // 5. Firebase init.json is not required by this checker
+    add(
+      "info",
+      "Firebase init.json",
+      "Not used to validate the app configuration. The Firebase project ID is checked directly from config.js above."
+    );
+
+    // 6. Gemini API route
+    try {
+      const response = await fetch("/api/gemini", {
+        cache: "no-store"
+      });
+
+      add(
+        response.status === 405 ? "ok" :
+        response.ok ? "ok" : "no",
+        "Gemini API route: HTTP " + response.status,
+        response.status === 405
+          ? "GET is not allowed; this may be normal for a POST-only API."
+          : response.ok
+            ? "The route responded. The actual Gemini request still needs testing."
+            : "Check the API route and Vercel deployment logs."
+      );
+    } catch (error) {
+      add(
+        "no",
+        "Gemini API route failed",
+        error.message
+      );
+    }
+
+    // 7. EmailJS (welcome emails)
+    const miss = emailjsMissing();
+    add(
+      miss.length ? "no" : "ok",
+      "EmailJS settings in config.js",
+      miss.length
+        ? "Missing: " + miss.join(", ") + ". Follow SETUP-EMAILJS.md."
+        : "Public key, service ID and template ID are filled in."
+    );
+    if (!miss.length) {
+      const box = document.createElement("div");
+      box.className = "r info";
+      box.innerHTML = '<div>Send a real test email</div><small>Type an email address you own. The real EmailJS answer (or error) is shown below.</small>';
+      const inp = document.createElement("input");
+      inp.type = "email"; inp.placeholder = "you@gmail.com";
+      inp.style.cssText = "width:100%;margin:8px 0;padding:8px;border-radius:6px;border:1px solid #2a4660;background:#0a1520;color:#fff";
+      const btn = document.createElement("button");
+      btn.textContent = "Send a test email";
+      btn.style.cssText = "padding:8px 14px;border:0;border-radius:6px;background:#38d996;color:#04261a;font-weight:bold;cursor:pointer";
+      const out = document.createElement("div");
+      out.style.cssText = "margin-top:8px;overflow-wrap:anywhere";
+      btn.onclick = async () => {
+        const to = inp.value.trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) { out.textContent = "Type a valid email first."; return; }
+        btn.disabled = true; out.textContent = "Sending...";
+        try {
+          const r = await sendEmailJS({ to_email: to, to_name: to.split("@")[0], reply_to: to, app_name: "CodeLens AI Pro", site_url: "https://" + SITE_DOMAIN, message: "Test email from check.html" });
+          out.style.color = "#38d996"; out.textContent = "PASS: EmailJS accepted it (" + r + "). Check the inbox and Spam of " + to + ".";
+        } catch (e) { out.style.color = "#ff6b6b"; out.textContent = "FAIL: " + e.message; }
+        btn.disabled = false;
+      };
+      box.append(inp, btn, out);
+      o.appendChild(box);
+    }
+
+    // 8. Configuration summary
+    add(
+      "info",
+      "Next step",
+      "Test Google Sign-In, the welcome email and the Publish feature separately. These checks do not verify Firestore access or actual login success."
+    );
+  </script>
+</body>
+</html>

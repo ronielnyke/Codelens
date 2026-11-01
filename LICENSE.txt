@@ -1,0 +1,8 @@
+CodeLens License
+Copyright (c) Roniel Nyke Gonzales - BS INFO TECH 2-B. All rights reserved.
+
+1. The CodeLens source code is owned by the developer. Copying, reselling, redistributing or presenting it as your own work without written permission is prohibited.
+2. A buyer on the Marketplace receives a personal license to use the purchased code for themselves or their client, not to resell it as a standalone product.
+3. The copyright notice and license key must remain in the files.
+4. Violations may result in account removal and legal action under the Intellectual Property Code of the Philippines (RA 8293).
+5. The software is provided "as is" without warranty.
